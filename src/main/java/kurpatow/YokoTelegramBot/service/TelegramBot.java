@@ -28,19 +28,16 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             switch (messageText) {
                 case "/start":
-                    try {
-                        startCommandReceived(chatId, update.getMessage().getChat().getFirstName());
-                    } catch (TelegramApiException e) {
-                        throw new RuntimeException(e);
-                    }
-                default: sendMessage(chatId, "Прости, такую команду пока не знаю :(");
+                    startCommandReceived(chatId, update.getMessage().getChat().getFirstName());
+                    break;
+
+                    default: sendMessage(chatId, "Прости, такую команду пока не знаю :(");
             }
         }
     }
 
-    private void startCommandReceived(long chatId, String name) throws TelegramApiException {
+    private void startCommandReceived(long chatId, String name) {
         String answer = "Рад приветсвовать тебя, " + name + "!";
-
         sendMessage(chatId, answer);
     }
 
@@ -53,7 +50,6 @@ public class TelegramBot extends TelegramLongPollingBot {
             execute(message);
         }
         catch (TelegramApiException e) {
-
         }
     }
 }

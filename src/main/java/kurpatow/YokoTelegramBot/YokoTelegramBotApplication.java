@@ -9,5 +9,4 @@ public class YokoTelegramBotApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(YokoTelegramBotApplication.class, args);
 	}
-
 }
