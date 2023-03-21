@@ -1,0 +1,36 @@
+<configuration>
+
+    <property name="HOME_LOG" value="/var/log/project-yoko-c.io/tg-yoko-bot/app.log"/>
+
+    <appender name="FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${HOME_LOG}</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>/var/log/project-yoko-c.io/tg-yoko-bot/app.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <!-- Условие: размер каждого заархивированного файла не может быть более 10 МБ -->
+            <maxFileSize>10MB</maxFileSize>
+            <!-- Условие: общий размер всех архивных файлов.
+            Если общий размер превышает 1 ГБ, то старый архивный файл будет удален и записан новый. -->
+            <totalSizeCap>1GB</totalSizeCap>
+            <!-- после 60 дней архивные файлы удаляются -->
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d %p %c[1.] [%t] %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="io.project-yoko-c.SpringTgBot" level="debug" additivity="false">
+        <appender-ref ref="FILE-ROLLING"/>
+    </logger>
+
+    <root level="error">
+        <appender-ref ref="FILE-ROLLING"/>
+    </root>
+
+    <root level="info">
+        <appender-ref ref="FILE-ROLLING"/>
+    </root>
+
+</configuration>
