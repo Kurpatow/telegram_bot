@@ -1,5 +1,6 @@
 package kurpatow.YokoTelegramBot.service;
 
+import com.vdurmont.emoji.EmojiParser;
 import kurpatow.YokoTelegramBot.config.BotConfig;
 import kurpatow.YokoTelegramBot.model.User;
 import kurpatow.YokoTelegramBot.model.UserRepository;
@@ -105,7 +106,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void startCommandReceived(long chatId, String name) {
-        String answer = "Рад приветсвовать тебя, " + name + "!";
+        String answer = EmojiParser.parseToUnicode("Привет, " + name + " :wave:");
+        //String answer = "Рад приветсвовать тебя, " + name + "!";
         log.info("Ответил пользователю " + name);
 
         sendMessage(chatId, answer);
