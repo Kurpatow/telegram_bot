@@ -1,23 +1,30 @@
 package kurpatow.YokoTelegramBot.service;
 
 import kurpatow.YokoTelegramBot.config.BotConfig;
+import kurpatow.YokoTelegramBot.model.User;
+import kurpatow.YokoTelegramBot.model.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
+
+    @Autowired
+    private UserRepository userRepository;
 
     final BotConfig config;
 
@@ -29,7 +36,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             Введите /start, чтобы увидеть приветственное сообщение
 
             Введите /myData, чтобы просмотреть данные, хранящиеся о вас
-
+            
             Введите /help, чтобы снова увидеть это сообщение""";
 
     static final String YES_BUTTON = "YES_BUTTON";
@@ -66,6 +73,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             switch (messageText) {
                 case "/start":
+                    registerUser(update.getMessage());
                     startCommandReceived(chatId, update.getMessage().getChat().getFirstName());
                     break;
                 case "/help":
@@ -74,6 +82,25 @@ public class TelegramBot extends TelegramLongPollingBot {
                 default:
                     sendMessage(chatId, "Прости, такую команду пока не знаю :(");
             }
+        }
+    }
+
+    private void registerUser(Message msg) {
+        if (userRepository.findById(msg.getChatId()).isEmpty()){
+            var chatId = msg.getChatId();
+            var chat = msg.getChat();
+
+            //Создан пользователь и вытащили данные о нем.
+            User user = new User();
+
+            user.setChatId(chatId);
+            user.setFirstName(chat.getFirstName());
+            user.setLastName(chat.getLastName());
+            user.setUserName(chat.getUserName());
+            user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
+
+            userRepository.save(user);
+            log.info("user saved: " + user);
         }
     }
 
