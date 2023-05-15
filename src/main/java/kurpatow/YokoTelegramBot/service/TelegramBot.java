@@ -2,10 +2,13 @@ package kurpatow.YokoTelegramBot.service;
 
 import com.vdurmont.emoji.EmojiParser;
 import kurpatow.YokoTelegramBot.config.BotConfig;
+import kurpatow.YokoTelegramBot.model.Ads;
+import kurpatow.YokoTelegramBot.model.AdsRepository;
 import kurpatow.YokoTelegramBot.model.User;
 import kurpatow.YokoTelegramBot.model.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
@@ -31,7 +34,8 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Autowired
     private UserRepository userRepository;
-
+    @Autowired
+    private AdsRepository adsRepository;
     final BotConfig config;
 
     static final String HELP_TEXT = """
@@ -72,32 +76,29 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
+
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             long chatId = update.getMessage().getChatId();
 
-            if (messageText.contains("/send") && config.getOwnerId() == chatId) {
+            if(messageText.contains("/send") && config.getOwnerId() == chatId) {
                 var textToSend = EmojiParser.parseToUnicode(messageText.substring(messageText.indexOf(" ")));
                 var users = userRepository.findAll();
-                for (User user : users) {
+                for (User user: users){
                     prepareAndSendMessage(user.getChatId(), textToSend);
                 }
             }
+
             else {
                 switch (messageText) {
-                    case "/start":
+
+                    case "/start" -> {
                         registerUser(update.getMessage());
                         startCommandReceived(chatId, update.getMessage().getChat().getFirstName());
-                        break;
-                    case "/help":
-                        prepareAndSendMessage(chatId, HELP_TEXT);
-                        break;
-
-                    case "/register":
-                        register(chatId);
-                        break;
-                    default:
-                        prepareAndSendMessage(chatId, "Прости, такую команду пока не знаю :(");
+                    }
+                    case "/help" -> prepareAndSendMessage(chatId, HELP_TEXT);
+                    case "/register" -> register(chatId);
+                    default -> prepareAndSendMessage(chatId, "Прости, такую команду пока не знаю :(");
                 }
             }
 
@@ -147,12 +148,15 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void registerUser(Message msg) {
+
         if (userRepository.findById(msg.getChatId()).isEmpty()) {
+
             var chatId = msg.getChatId();
             var chat = msg.getChat();
 
             //Создан пользователь и вытащили данные о нем.
             User user = new User();
+
             user.setChatId(chatId);
             user.setFirstName(chat.getFirstName());
             user.setLastName(chat.getLastName());
@@ -176,17 +180,22 @@ public class TelegramBot extends TelegramLongPollingBot {
         message.setText(textToSend);
 
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+
         List<KeyboardRow> keyboardRows = new ArrayList<>();
 
         KeyboardRow row = new KeyboardRow();
+
         row.add("weather");
         row.add("get random joke");
+
         keyboardRows.add(row);
 
         row = new KeyboardRow();
+
         row.add("register");
         row.add("check my data");
         row.add("delete my data");
+
         keyboardRows.add(row);
 
         keyboardMarkup.setKeyboard(keyboardRows);
@@ -196,7 +205,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         executeMessage(message);
     }
 
-    private void executeEditMessageText(String text, long chatId, long messageId) {
+    private void executeEditMessageText(String text, long chatId, long messageId){
         EditMessageText message = new EditMessageText();
         message.setChatId(String.valueOf(chatId));
         message.setText(text);
@@ -204,8 +213,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         try {
             execute(message);
-        } catch (
-                TelegramApiException e) {
+        } catch (TelegramApiException e) {
             log.error(ERROR_TEXT + e.getMessage());
         }
     }
@@ -213,7 +221,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private void executeMessage(SendMessage message){
         try {
             execute(message);
-        }catch (TelegramApiException e) {
+        } catch (TelegramApiException e) {
             log.error(ERROR_TEXT + e.getMessage());
         }
     }
@@ -223,5 +231,20 @@ public class TelegramBot extends TelegramLongPollingBot {
         message.setChatId(String.valueOf(chatId));
         message.setText(textToSend);
         executeMessage(message);
+    }
+
+    //cron - Linux синтаксис.
+    // 6 слотов для определения времени. Сек, Мин, Час, Дата(напр 15), Месяц(напр 05), День недели(напр понедельник)
+    @Scheduled(cron = "${cron.scheduled}")
+    private void sendAds(){
+
+        var ads = adsRepository.findAll();
+        var users = userRepository.findAll();
+
+        for (Ads ad: ads) {
+            for (User user: users){
+                prepareAndSendMessage(user.getChatId(), ad.getAd());
+            }
+        }
     }
 }
