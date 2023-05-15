@@ -42,13 +42,12 @@ public class TelegramBot extends TelegramLongPollingBot {
             Введите /start, чтобы увидеть приветственное сообщение
 
             Введите /myData, чтобы просмотреть данные, хранящиеся о вас
-            
+                        
             Введите /help, чтобы снова увидеть это сообщение""";
 
     static final String YES_BUTTON = "YES_BUTTON";
     static final String NO_BUTTON = "NO_BUTTON";
-
-    static final String ERROR_TEXT = "Error occurred: ";
+    static final String ERROR_TEXT = "Возникла ошибка: ";
 
     public TelegramBot(BotConfig config) {
         this.config = config;
@@ -66,10 +65,10 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     @Override
-    public String getBotToken() {return config.getToken();}
+    public String getBotToken() { return config.getToken(); }
 
     @Override
-    public String getBotUsername() {return config.getBotName();}
+    public String getBotUsername() { return config.getBotName(); }
 
     @Override
     public void onUpdateReceived(Update update) {
@@ -77,62 +76,44 @@ public class TelegramBot extends TelegramLongPollingBot {
             String messageText = update.getMessage().getText();
             long chatId = update.getMessage().getChatId();
 
-            if(messageText.contains("/send") && config.getOwnerId() == chatId){
+            if (messageText.contains("/send") && config.getOwnerId() == chatId) {
                 var textToSend = EmojiParser.parseToUnicode(messageText.substring(messageText.indexOf(" ")));
                 var users = userRepository.findAll();
-                for (User user: users){
-                    sendMessage(user.getChatId(), textToSend);
+                for (User user : users) {
+                    prepareAndSendMessage(user.getChatId(), textToSend);
+                }
+            }
+            else {
+                switch (messageText) {
+                    case "/start":
+                        registerUser(update.getMessage());
+                        startCommandReceived(chatId, update.getMessage().getChat().getFirstName());
+                        break;
+                    case "/help":
+                        prepareAndSendMessage(chatId, HELP_TEXT);
+                        break;
+
+                    case "/register":
+                        register(chatId);
+                        break;
+                    default:
+                        prepareAndSendMessage(chatId, "Прости, такую команду пока не знаю :(");
                 }
             }
 
-            switch (messageText) {
-                case "/start":
-                    registerUser(update.getMessage());
-                    startCommandReceived(chatId, update.getMessage().getChat().getFirstName());
-                    break;
-                case "/help":
-                    sendMessage(chatId, HELP_TEXT);
-                    break;
-
-                case "/register":
-                    register(chatId);
-                    break;
-                default:
-                    sendMessage(chatId, "Прости, такую команду пока не знаю :(");
-            }
-        //Получем id сообщения, которое мы сможем редактировать без отправки нового сообщения пользователю
-        }else if (update.hasCallbackQuery()) {
+            //Получем id сообщения, которое мы сможем редактировать без отправки нового сообщения пользователю
+        } else if (update.hasCallbackQuery()) {
             String callbackData = update.getCallbackQuery().getData();
             long messageId = update.getCallbackQuery().getMessage().getMessageId();
             long chatId = update.getCallbackQuery().getMessage().getChatId();
 
-            if (callbackData.equals("YES_BUTTON")) {
+            if (callbackData.equals(YES_BUTTON)) {
                 String text = "Выбрана команда ДА";
-                EditMessageText message = new EditMessageText();
-                message.setChatId(String.valueOf(chatId));
-                message.setText(text);
-                message.setMessageId((int)messageId);
-
-                try {
-                    execute(message);
-                }
-                catch (TelegramApiException e) {
-                    log.error("Возникла ошибка: " + e.getMessage());
-                }
+                executeEditMessageText(text, chatId, messageId);
             }
-            else if (callbackData.equals("NO_BUTTON")) {
+            else if (callbackData.equals(NO_BUTTON)) {
                 String text = "Выбрана команда НЕТ";
-                EditMessageText message = new EditMessageText();
-                message.setChatId(String.valueOf(chatId));
-                message.setText(text);
-                message.setMessageId((int)messageId);
-
-                try {
-                    execute(message);
-                }
-                catch (TelegramApiException e) {
-                    log.error("Возникла ошибка: " + e.getMessage());
-                }
+                executeEditMessageText(text, chatId, messageId);
             }
         }
     }
@@ -147,12 +128,12 @@ public class TelegramBot extends TelegramLongPollingBot {
         List<InlineKeyboardButton> rowInLine = new ArrayList<>();
 
         var yesButton = new InlineKeyboardButton();
-        yesButton.setText("ДА");
-        yesButton.setCallbackData("YES_BUTTON");
+        yesButton.setText("Да");
+        yesButton.setCallbackData(YES_BUTTON);
 
         var noButton = new InlineKeyboardButton();
-        noButton.setText("НЕТ");
-        noButton.setCallbackData("NO_BUTTON");
+        noButton.setText("Нет");
+        noButton.setCallbackData(NO_BUTTON);
 
         rowInLine.add(yesButton);
         rowInLine.add(noButton);
@@ -162,22 +143,16 @@ public class TelegramBot extends TelegramLongPollingBot {
         markupInLine.setKeyboard(rowsInLine);
         message.setReplyMarkup(markupInLine);
 
-        try {
-            execute(message);
-        }
-        catch (TelegramApiException e) {
-            log.error("Возникла ошибка: " + e.getMessage());
-        }
+        executeMessage(message);
     }
 
     private void registerUser(Message msg) {
-        if (userRepository.findById(msg.getChatId()).isEmpty()){
+        if (userRepository.findById(msg.getChatId()).isEmpty()) {
             var chatId = msg.getChatId();
             var chat = msg.getChat();
 
             //Создан пользователь и вытащили данные о нем.
             User user = new User();
-
             user.setChatId(chatId);
             user.setFirstName(chat.getFirstName());
             user.setLastName(chat.getLastName());
@@ -185,15 +160,13 @@ public class TelegramBot extends TelegramLongPollingBot {
             user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
 
             userRepository.save(user);
-            log.info("user saved: " + user);
+            log.info("Сохранен пользователь: " + user);
         }
     }
 
     private void startCommandReceived(long chatId, String name) {
         String answer = EmojiParser.parseToUnicode("Привет, " + name + " :wave:");
-        //String answer = "Рад приветсвовать тебя, " + name + "!";
         log.info("Ответил пользователю " + name);
-
         sendMessage(chatId, answer);
     }
 
@@ -220,11 +193,35 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         message.setReplyMarkup(keyboardMarkup);
 
+        executeMessage(message);
+    }
+
+    private void executeEditMessageText(String text, long chatId, long messageId) {
+        EditMessageText message = new EditMessageText();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(text);
+        message.setMessageId((int) messageId);
+
         try {
             execute(message);
+        } catch (
+                TelegramApiException e) {
+            log.error(ERROR_TEXT + e.getMessage());
         }
-        catch (TelegramApiException e) {
-            log.error("Возникла ошибка: " + e.getMessage());
+    }
+
+    private void executeMessage(SendMessage message){
+        try {
+            execute(message);
+        }catch (TelegramApiException e) {
+            log.error(ERROR_TEXT + e.getMessage());
         }
+    }
+
+    private void prepareAndSendMessage(long chatId, String textToSend){
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(textToSend);
+        executeMessage(message);
     }
 }
